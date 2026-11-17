@@ -1348,7 +1348,7 @@ final class HIDRemoteMonitor {
         neutralized: Bool,
         directionalFallback: Bool
     ) -> Bool {
-        if button == .tv || button == .volumeUp || button == .volumeDown {
+        if button == .tv || button == .volumeUp || button == .volumeDown || button == .primeVideo {
             return Self.needsEventLevelArm(seized: seized, neutralized: neutralized)
         }
         return button.isDirectional && directionalFallback && !seized && neutralized
@@ -1606,7 +1606,7 @@ final class HIDRemoteMonitor {
         if !backOnlyMode {
             for usage in usages.subtracting(activeUsages) {
                 guard let button = usageMap[usage],
-                      button == .volumeUp || button == .volumeDown || button == .tv,
+                      button == .volumeUp || button == .volumeDown || button == .tv || button == .primeVideo,
                       shouldArmNativeEvent(for: button) else { continue }
                 eventSuppressor.arm(button: button, edge: .down)
             }
@@ -3065,7 +3065,7 @@ final class HIDRemoteMonitor {
         // monitored mode still delivers TV/volume events after a successful
         // readback, so those three controls always keep the event-tap fallback.
         // Callers already skip this for intentional native passthrough.
-        if button == .tv || button == .volumeUp || button == .volumeDown {
+        if button == .tv || button == .volumeUp || button == .volumeDown || button == .primeVideo {
             return Self.needsEventLevelArm(
                 seized: activeDeviceIsSeized,
                 neutralized: nativeKeysNeutralized

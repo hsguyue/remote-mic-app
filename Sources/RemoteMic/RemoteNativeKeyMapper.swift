@@ -10,6 +10,8 @@ final class RemoteNativeKeyMapper {
         HIDUsageMapping(source: 0x0000_0007_0000_0081, destination: 0),
     ] + [UInt64(0x28), 0x4a, 0x4f, 0x50, 0x51, 0x52, 0x65, 0x66].map {
         HIDUsageMapping(source: UInt64(7) << 32 | $0, destination: 0)
+    } + [UInt64(0x0030), 0x0041, 0x0042, 0x0043, 0x0044, 0x0045, 0x008E, 0x00B0, 0x00E9, 0x00EA, 0x0188, 0x0196, 0x0199, 0x0223, 0x0224].map {
+        HIDUsageMapping(source: UInt64(0x0C) << 32 | $0, destination: 0)
     }
     private static let recoveryKey = "sayall.native-key-mapping-recovery.v1"
 

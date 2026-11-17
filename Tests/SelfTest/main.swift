@@ -647,6 +647,7 @@ check(
         RemoteButton.usageMap(forProductID: 0x32B9)[0x00B0] == .primeVideo &&
         RemoteButton.usageMap(forProductID: 0x32B9)[0x0199] == .apps &&
         RemoteButton.voiceUsage(forProductID: 0x32B9) == 0x00CF &&
+        RemoteButton.primeVideo.nativeEvents == [.systemKey(type: 16), .systemKey(type: 2)] &&
         RemoteHIDReportParser.usages(reportID: 1, data: Data([0x96, 0x01])) == [0x0196],
     "XMRM-M3 15-button Consumer Usage table and voice usage"
 )

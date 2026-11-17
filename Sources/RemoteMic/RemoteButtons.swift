@@ -184,15 +184,21 @@ enum RemoteButton: String, CaseIterable, Codable, Identifiable {
         case .back: return nil
         case .playPause: return .systemKey(type: 2)
         case .mute: return .systemKey(type: 3)
-        // Chromecast 的三颗专有键由私有包的 HID 通道独占读取：映射开启时设备被整个独占，
+        // `primeVideo` 在 XMRM-M3 上复用 Consumer 0x00B0 (Play)，未拦截时会发出系统 NX_KEYTYPE_PLAY (16) 唤起 Apple Music。
+        case .primeVideo: return .systemKey(type: 16)
+        // Chromecast 的专有键由私有包的 HID 通道独占读取：映射开启时设备被整个独占，
         // 系统侧不会同时收到事件，因此不存在需要抑制的原生事件。
-        case .youtube, .netflix, .input, .xiaomiTVPlus, .primeVideo, .apps: return nil
+        case .youtube, .netflix, .input, .xiaomiTVPlus, .apps: return nil
         }
     }
 
     var nativeEvents: Set<RemoteNativeEvent> {
         guard let nativeEvent else { return [] }
-        return self == .tv ? [nativeEvent, .keyboard(keyCode: 50)] : [nativeEvent]
+        switch self {
+        case .tv: return [nativeEvent, .keyboard(keyCode: 50)]
+        case .primeVideo: return [nativeEvent, .systemKey(type: 2)]
+        default: return [nativeEvent]
+        }
     }
 
     /// 四颗方向键。它们的原生键码与实体键盘完全同码，因此拦截图层的登记范围

@@ -5939,6 +5939,7 @@ struct RemoteButtonsTests {
         #expect(xmrmMap[0x00E9] == .volumeUp)
         #expect(xmrmMap[0x00EA] == .volumeDown)
         #expect(RemoteButton.voiceUsage(forProductID: 0x32B9) == 0x00CF)
+        #expect(RemoteButton.primeVideo.nativeEvents == [.systemKey(type: 16), .systemKey(type: 2)])
 
         let suiteName = "RemoteButtonsTests.xmrmM3.\(UUID().uuidString)"
         let defaults = try #require(TestUserDefaults(suiteName: suiteName))
