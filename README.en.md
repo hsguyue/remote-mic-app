@@ -8,6 +8,10 @@ Forked and adapted from [SayAll (`HD838A/remote-mic-app`)](https://github.com/HD
   <img src="Resources/XMRM-M3-remote-photo.png" alt="Xiaomi TV Box S 2nd Gen (XMRM-M3) Bluetooth Remote" width="240">
 </p>
 
+<p align="center">
+  <img src="Screenshots/xmrm-m3-key-mapping-zh.jpg" alt="Xiaomi TV Box S 2nd Gen (XMRM-M3) Interactive Button Mapping Screenshot" width="760">
+</p>
+
 ## Key Adaptations for `XMRM-M3`
 
 - **Hardware Identification & Battery Reporting**

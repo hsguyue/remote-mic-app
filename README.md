@@ -8,6 +8,10 @@
   <img src="Resources/XMRM-M3-remote-photo.png" alt="Xiaomi TV Box S 2nd Gen (XMRM-M3) 蓝牙遥控器" width="240">
 </p>
 
+<p align="center">
+  <img src="Screenshots/xmrm-m3-key-mapping-zh.jpg" alt="Xiaomi TV Box S 2nd Gen (XMRM-M3) 按键映射实机截图" width="760">
+</p>
+
 ## 核心适配特性
 
 - **硬件精准识别与稳定连接**
