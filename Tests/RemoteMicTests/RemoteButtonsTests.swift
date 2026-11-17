@@ -5949,8 +5949,72 @@ struct RemoteButtonsTests {
     @Test func remoteModelNumberIdentificationIsStrictAndCaseInsensitive() {
         #expect(XiaomiRemoteModel.identified(by: "RC001") == .rc001)
         #expect(XiaomiRemoteModel.identified(by: " rc003\n") == .rc003)
+        #expect(XiaomiRemoteModel.identified(by: "fh005") == .xmrmM3)
         #expect(XiaomiRemoteModel.identified(by: "RC002") == nil)
         #expect(XiaomiRemoteModel.identified(by: "2BED") == nil)
+    }
+
+    @Test func xmrmM3ButtonsUsageMapAndVoiceEdge() throws {
+        #expect(RemoteButton.xiaomiCases.count == 12)
+        #expect(RemoteButton.cases(for: .xmrmM3).count == 15)
+        #expect(RemoteButton.cases(for: .xmrmM3).contains(.xiaomiTVPlus))
+        #expect(RemoteButton.cases(for: .xmrmM3).contains(.primeVideo))
+        #expect(RemoteButton.cases(for: .xmrmM3).contains(.apps))
+
+        let xmrmMap = RemoteButton.usageMap(forProductID: 0x32B9)
+        #expect(xmrmMap.count == 15)
+        #expect(xmrmMap[0x0030] == .power)
+        #expect(xmrmMap[0x0196] == .xiaomiTVPlus)
+        #expect(xmrmMap[0x0224] == .back)
+        #expect(xmrmMap[0x0223] == .home)
+        #expect(xmrmMap[0x008E] == .netflix)
+        #expect(xmrmMap[0x00B0] == .primeVideo)
+        #expect(xmrmMap[0x0188] == .youtube)
+        #expect(xmrmMap[0x0199] == .apps)
+        #expect(xmrmMap[0x00E9] == .volumeUp)
+        #expect(xmrmMap[0x00EA] == .volumeDown)
+        #expect(RemoteButton.voiceUsage(forProductID: 0x32B9) == 0x00CF)
+
+        let suiteName = "RemoteButtonsTests.xmrmM3.\(UUID().uuidString)"
+        let defaults = try #require(TestUserDefaults(suiteName: suiteName))
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        let settings = AppSettings(defaults: defaults)
+        settings.customMappingEnabled = true
+        let profileID = try #require(settings.selectedRemoteProfileID)
+
+        var performed: [RemoteButton] = []
+        var voiceEdges: [(Bool, Bool)] = []
+        let monitor = HIDRemoteMonitor(
+            settings: settings,
+            profileID: profileID,
+            eventSuppressor: KeyboardEventSuppressor(),
+            ownsEventSuppressor: false,
+            scheduler: RemoteButtonsTestScheduler(),
+            runtimePermissions: { true },
+            actionPerformer: { button, _, _ in performed.append(button); return true }
+        )
+        monitor.onVoiceButtonEdge = { _, isPressed, isSeized in
+            voiceEdges.append((isPressed, isSeized))
+        }
+        monitor.connectSimulatedDevice(
+            fingerprint: "xmrm-m3-test",
+            profileID: profileID,
+            isSeized: true,
+            productID: 0x32B9
+        )
+        defer { monitor.disconnectSimulatedDevice() }
+
+        // Consumer Usage 0x0196 (.xiaomiTVPlus) -> little-endian [0x96, 0x01]
+        monitor.handleSimulatedReport(reportID: 1, data: Data([0x96, 0x01]))
+        monitor.handleSimulatedReport(reportID: 1, data: Data([0x00, 0x00]))
+        #expect(performed == [.xiaomiTVPlus])
+
+        // Consumer Usage 0x00CF (XMRM-M3 voice key) -> little-endian [0xCF, 0x00]
+        monitor.handleSimulatedReport(reportID: 1, data: Data([0xCF, 0x00]))
+        monitor.handleSimulatedReport(reportID: 1, data: Data([0x00, 0x00]))
+        #expect(voiceEdges.count == 2)
+        #expect(voiceEdges[0] == (true, true))
+        #expect(voiceEdges[1] == (false, true))
     }
 
     @Test func batteryLevelStatusDecodesUserFacingPowerStates() {

@@ -9,6 +9,7 @@ import Foundation
 //
 //   遥控器            长按收音  按一次收音  触摸面
 //   小米 RC001/RC003    ✅        ❌        ❌
+//   小米 XMRM-M3        按键触发   ❌        ❌
 //   Chromecast          ✅        ✅        ❌
 //   Apple Siri Remote   ✅      未测试      ✅
 //

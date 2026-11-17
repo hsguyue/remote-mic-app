@@ -138,7 +138,7 @@ enum RemoteDeviceNamePolicy {
 
     private static func cardFamilyOrder(_ model: XiaomiRemoteModel) -> Int {
         switch model {
-        case .rc001, .rc003: 0
+        case .rc001, .rc003, .xmrmM3: 0
         case .appleSiriRemoteA2854, .appleSiriRemoteA2540: 1
         case .chromecastVoiceRemote: 2
         case .unknown: 3
@@ -184,10 +184,12 @@ enum RemoteDeviceNamePolicy {
     private static func isFactoryName(_ name: String, model: XiaomiRemoteModel) -> Bool {
         let lowercased = name.lowercased()
         switch model {
-        case .rc001, .rc003:
+        case .rc001, .rc003, .xmrmM3:
             return XiaomiVoiceRemoteNameMatcher.matches(name) || [
                 "小米蓝牙遥控器 2",
                 "小米蓝牙遥控器 2 pro",
+                "小米盒子 2 代遥控器 (xmrm-m3)",
+                "xiaomi rc",
             ].contains(lowercased)
         case .appleSiriRemoteA2854, .appleSiriRemoteA2540:
             let commonNames = ["siri remote", "apple tv remote", "apple remote"]

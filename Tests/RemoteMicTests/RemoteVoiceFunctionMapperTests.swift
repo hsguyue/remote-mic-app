@@ -264,6 +264,39 @@ struct RemoteVoiceFunctionMapperTests {
 
         #expect(ownerReference.value == nil)
     }
+
+    @Test func xmrmM3VoiceAndPowerMappingsUseConsumerUsagesWithoutTouchingKeyboardF5() {
+        let voiceFn = RemoteVoiceFunctionMappingPolicy.voiceMapping(
+            forProductID: 0x32B9,
+            neutralize: false
+        )
+        let voiceNeutral = RemoteVoiceFunctionMappingPolicy.voiceMapping(
+            forProductID: 0x32B9,
+            neutralize: true
+        )
+        let powerF20 = RemoteVoiceFunctionMappingPolicy.suppressedPowerMapping(
+            forProductID: 0x32B9
+        )
+
+        #expect(voiceFn.source == 0x0000_000C_0000_00CF)
+        #expect(voiceFn.destination == 0x0000_00FF_0000_0003)
+        #expect(voiceNeutral.source == 0x0000_000C_0000_00CF)
+        #expect(voiceNeutral.destination == 0x0)
+        #expect(powerF20.source == 0x0000_000C_0000_0030)
+        #expect(powerF20.destination == 0x0000_0007_0000_006F)
+
+        let unrelatedKeyboardF5 = HIDUsageMapping(
+            source: RemoteVoiceFunctionMappingPolicy.remoteVoiceKey.source,
+            destination: 0x0000_0007_0000_003E
+        )
+        let updated = RemoteVoiceFunctionMappingPolicy.applying(
+            to: [unrelatedKeyboardF5],
+            voiceMapping: voiceFn,
+            powerMapping: powerF20,
+            productID: 0x32B9
+        )
+        #expect(updated == [unrelatedKeyboardF5, voiceFn, powerF20])
+    }
 }
 
 private final class MappingServiceOwner {}

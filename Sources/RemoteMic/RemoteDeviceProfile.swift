@@ -3,6 +3,7 @@ import Foundation
 enum XiaomiRemoteModel: String, Codable, CaseIterable, Identifiable {
     case rc001
     case rc003
+    case xmrmM3 = "xmrm_m3"
     case appleSiriRemoteA2854 = "apple_siri_remote_a2854"
     case appleSiriRemoteA2540 = "apple_siri_remote_a2540"
     /// Chromecast（Google Chromecast 语音遥控器）。与苹果遥控器同理，case 始终存在以保证
@@ -31,6 +32,7 @@ enum XiaomiRemoteModel: String, Codable, CaseIterable, Identifiable {
         switch self {
         case .rc001: return "remote.device.model.rc001"
         case .rc003: return "remote.device.model.rc003"
+        case .xmrmM3: return "remote.device.model.xmrm_m3"
         case .appleSiriRemoteA2854:
             return "remote.device.model.apple_siri_remote_a2854"
         case .appleSiriRemoteA2540:
@@ -45,6 +47,7 @@ enum XiaomiRemoteModel: String, Codable, CaseIterable, Identifiable {
         switch self {
         case .rc001: "xiaomi-remote-rc001"
         case .rc003: "xiaomi-remote-2-pro"
+        case .xmrmM3: "xiaomi-remote-xmrm-m3"
         case .appleSiriRemoteA2854: "apple-siri-remote-a2854"
         case .appleSiriRemoteA2540: "apple-siri-remote-a2540"
         case .chromecastVoiceRemote: "chromecast-voice-remote"
@@ -65,6 +68,16 @@ enum XiaomiRemoteModel: String, Codable, CaseIterable, Identifiable {
     /// 这类型号的档案不得被小米 HID 发现链路当成候选。
     var usesPrivateAdapter: Bool {
         isAppleSiriRemote || isChromecastRemote
+    }
+
+    /// 小米盒子 2 代海外版语音遥控器（XMRM-M3，DIS 型号 `"FH005"`）。
+    var isXiaomiXMRMM3: Bool {
+        self == .xmrmM3
+    }
+
+    /// 该型号在 macOS 公开蓝牙链路上是否支持直接回传遥控器内置蓝牙麦克风音频。
+    var supportsBluetoothVoiceAudio: Bool {
+        self != .xmrmM3
     }
 
     /// 按 DIS 型号串识别型号。规则集中在 `VoiceRemoteCatalog`——这里不再单独写名单。
@@ -111,6 +124,13 @@ enum VoiceRemoteCatalog {
             // 翻转（解码层，见 ATVVProtocol.lowNibbleFirst）——两者都不依赖型号归属。
             disModelNumbers: ["RC003"]
         ),
+        VoiceRemoteCatalogEntry(
+            model: .xmrmM3,
+            photoResource: "XMRM-M3-remote-photo",
+            // 真机证实（2026-11-16）：Xiaomi Box 2nd 海外版遥控器 XMRM-M3（蓝牙名 Xiaomi RC）
+            // 的 DIS 2A24 报 FH005。
+            disModelNumbers: ["FH005"]
+        ),
     ]
 
     /// 本桥会考虑的广播名（设备自报，小写）。**只作连接前的辅助筛选**：
@@ -128,6 +148,7 @@ enum VoiceRemoteCatalog {
         "小米蓝牙遥控器2",
         "小米蓝牙遥控器2 pro",
         "arn9",
+        "xiaomi rc",
     ]
 
     /// 按 DIS 型号串识别型号。`raw` 是设备上报的原始串，子串命中即认——

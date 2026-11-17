@@ -166,6 +166,7 @@ final class XiaomiBluetoothBridge: NSObject {
     private var scanTimeoutWorkItem: DispatchWorkItem?
     private var capabilitiesRequested = false
     private var capabilitiesConfirmed = false
+    private var awaitingModelIdentificationWithoutVoiceService = false
     private var requestedReconnectDelay: TimeInterval?
     private var reconnectPolicy = BluetoothReconnectPolicy()
     private var currentAttemptUsesCachedTarget = false
@@ -208,6 +209,30 @@ final class XiaomiBluetoothBridge: NSObject {
     private let batteryLevelStatusUUID = CBUUID(string: "2BED")
     private let deviceInformationServiceUUID = CBUUID(string: "180A")
     private let modelNumberUUID = CBUUID(string: "2A24")
+    private let hidServiceUUID = CBUUID(string: "1812")
+
+    private func connectedCandidatePeripherals(from central: CBCentralManager) -> [CBPeripheral] {
+        var seen = Set<UUID>()
+        var result: [CBPeripheral] = []
+        for peripheral in central.retrieveConnectedPeripherals(withServices: [serviceUUID]) {
+            if seen.insert(peripheral.identifier).inserted {
+                result.append(peripheral)
+            }
+        }
+        // XMRM-M3 等在 macOS 不暴露 AB5E0001 的遥控器可通过 DIS/Battery/HID 检索，
+        // 但仅收入命中已保存在案的目标标识或小米遥控器名称白名单的设备，避免混入其它系统外设。
+        for peripheral in central.retrieveConnectedPeripherals(
+            withServices: [hidServiceUUID, deviceInformationServiceUUID, batteryServiceUUID]
+        ) {
+            guard !seen.contains(peripheral.identifier) else { continue }
+            let isSavedTarget = targetIdentifier == peripheral.identifier
+            let isRecognizedName = XiaomiVoiceRemoteNameMatcher.recognizedName(peripheral.name) != nil
+            guard isSavedTarget || isRecognizedName else { continue }
+            seen.insert(peripheral.identifier)
+            result.append(peripheral)
+        }
+        return result
+    }
 
     var deviceIdentifier: UUID? {
         peripheral?.identifier ?? targetIdentifier
@@ -218,7 +243,7 @@ final class XiaomiBluetoothBridge: NSObject {
         guard shouldRun, let central, central.state == .poweredOn,
               let peripheral, case .ready = lifecycle
         else { return nil }
-        return central.retrieveConnectedPeripherals(withServices: [serviceUUID])
+        return connectedCandidatePeripherals(from: central)
             .first(where: { $0.identifier == peripheral.identifier })?.name
     }
 
@@ -627,7 +652,7 @@ final class XiaomiBluetoothBridge: NSObject {
             }
             return saved
         }, retrieveConnectedCandidates: {
-            let connectedCandidates = central.retrieveConnectedPeripherals(withServices: [serviceUUID])
+            let connectedCandidates = connectedCandidatePeripherals(from: central)
             AppLogger.shared.write(
                 "BLE SYSTEM CONNECTED CANDIDATES operation_id=\(discoveryOperationID) generation=\(generation) count=\(connectedCandidates.count)"
             )
@@ -842,6 +867,7 @@ final class XiaomiBluetoothBridge: NSObject {
         initializationTimeoutWorkItem = nil
         capabilitiesRequested = false
         capabilitiesConfirmed = false
+        awaitingModelIdentificationWithoutVoiceService = false
         capabilities = Self.defaultCapabilities
         currentAttemptUsesCachedTarget = false
         resetSession()
@@ -1642,10 +1668,23 @@ extension XiaomiBluetoothBridge {
             return
         }
         guard let service = peripheral.services?.first(where: { $0.uuid == serviceUUID }) else {
-            state = .failed(LocalizedMessage("connection.error.voice_service_missing"))
-            scheduleReconnect(bypassCachedTarget: true)
+            if let deviceInformationService = peripheral.services?.first(where: {
+                $0.uuid == deviceInformationServiceUUID
+            }) {
+                awaitingModelIdentificationWithoutVoiceService = true
+                peripheral.discoverCharacteristics([modelNumberUUID], for: deviceInformationService)
+                if let batteryService = peripheral.services?.first(where: { $0.uuid == batteryServiceUUID }) {
+                    peripheral.discoverCharacteristics(
+                        [batteryLevelUUID, batteryLevelStatusUUID],
+                        for: batteryService
+                    )
+                }
+                return
+            }
+            failMissingVoiceService()
             return
         }
+        awaitingModelIdentificationWithoutVoiceService = false
         peripheral.discoverCharacteristics(
             [transmitUUID, audioUUID, controlUUID],
             for: service
@@ -1661,6 +1700,29 @@ extension XiaomiBluetoothBridge {
         }) {
             peripheral.discoverCharacteristics([modelNumberUUID], for: deviceInformationService)
         }
+    }
+
+    private func failMissingVoiceService() {
+        awaitingModelIdentificationWithoutVoiceService = false
+        state = .failed(LocalizedMessage("connection.error.voice_service_missing"))
+        scheduleReconnect(bypassCachedTarget: true)
+    }
+
+    private func completeReadyWithoutVoiceService(
+        peripheral: CBPeripheral,
+        generation: UInt64,
+        model: XiaomiRemoteModel
+    ) {
+        initializationTimeoutWorkItem?.cancel()
+        initializationTimeoutWorkItem = nil
+        reconnectPolicy.reset()
+        currentAttemptUsesCachedTarget = false
+        lifecycle = .ready(generation)
+        state = .ready(peripheral.name ?? "Xiaomi RC")
+        AppLogger.shared.write(
+            "BLE READY operation_id=\(discoveryOperationID) name=\(peripheral.name ?? "Xiaomi RC") " +
+                "model=\(model.rawValue) mode=hid_only_no_atvv"
+        )
     }
 
     fileprivate func handleDiscoveredCharacteristics(
@@ -1733,9 +1795,15 @@ extension XiaomiBluetoothBridge {
                     "BLE MODEL characteristic_discovery_failed " +
                         AppLogger.errorFields(error)
                 )
+                if awaitingModelIdentificationWithoutVoiceService {
+                    failMissingVoiceService()
+                }
                 return
             }
             guard let characteristic = service.characteristics?.first(where: { $0.uuid == modelNumberUUID }) else {
+                if awaitingModelIdentificationWithoutVoiceService {
+                    failMissingVoiceService()
+                }
                 return
             }
             peripheral.readValue(for: characteristic)
@@ -1874,6 +1942,9 @@ extension XiaomiBluetoothBridge {
                 AppLogger.shared.write(
                     "BLE MODEL read_failed " + AppLogger.errorFields(error)
                 )
+                if awaitingModelIdentificationWithoutVoiceService {
+                    failMissingVoiceService()
+                }
             }
             return
         }
@@ -1904,6 +1975,9 @@ extension XiaomiBluetoothBridge {
         if characteristic.uuid == modelNumberUUID {
             guard let modelNumber = String(data: data, encoding: .utf8) else {
                 AppLogger.shared.write("BLE MODEL unreadable")
+                if awaitingModelIdentificationWithoutVoiceService {
+                    failMissingVoiceService()
+                }
                 return
             }
             let normalizedModelNumber = modelNumber.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
@@ -1915,6 +1989,9 @@ extension XiaomiBluetoothBridge {
             }
             guard let model = XiaomiRemoteModel.identified(by: modelNumber) else {
                 AppLogger.shared.write("BLE MODEL unrecognized modelNumber=\(normalizedModelNumber)")
+                if awaitingModelIdentificationWithoutVoiceService {
+                    failMissingVoiceService()
+                }
                 return
             }
             // 原始型号串必须一起记：广播名与型号**不是**一一对应（本机这台广播名是
@@ -1923,6 +2000,18 @@ extension XiaomiBluetoothBridge {
                 "BLE MODEL identified=\(model.rawValue) modelNumber=\(normalizedModelNumber)"
             )
             delegate?.bluetoothBridge(self, didIdentifyRemoteModel: model)
+            if awaitingModelIdentificationWithoutVoiceService {
+                awaitingModelIdentificationWithoutVoiceService = false
+                if !model.supportsBluetoothVoiceAudio {
+                    completeReadyWithoutVoiceService(
+                        peripheral: peripheral,
+                        generation: generation,
+                        model: model
+                    )
+                } else {
+                    failMissingVoiceService()
+                }
+            }
             return
         }
         if characteristic.uuid == controlUUID {

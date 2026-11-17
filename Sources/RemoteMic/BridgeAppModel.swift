@@ -591,6 +591,8 @@ final class BridgeAppModel: NSObject, ObservableObject, XiaomiBluetoothBridgeDel
     @Published private(set) var hidStatus = LocalizedMessage("button_mapping.status.disabled")
     @Published private(set) var audioStatus = LocalizedMessage("audio.output.none_selected")
     @Published private(set) var isStreaming = false
+    @Published private(set) var isXMRMM3VoiceButtonActive = false
+    private var xmrmM3VoiceTapRelease: DispatchWorkItem?
     @Published private(set) var voiceSessionWarningLevel: VoiceSessionWarningLevel = .none
     @Published private(set) var isConnected = false
     @Published private(set) var isVoiceTriggerEnabled = false
@@ -4304,6 +4306,7 @@ final class BridgeAppModel: NSObject, ObservableObject, XiaomiBluetoothBridgeDel
         discoveryHIDMonitor = nil
         hidEventSuppressor.stop()
         activeRemoteButtons = []
+        resetXMRMM3VoiceButtonState(reason: "hid_monitors_stopped")
     }
 
     private func startHIDDiscoveryIfNeeded(allowBackOnly: Bool = false) {
@@ -4478,7 +4481,102 @@ final class BridgeAppModel: NSObject, ObservableObject, XiaomiBluetoothBridgeDel
             if let profileID { self.selectRemoteProfile(profileID) }
             self.performInternalAction(action, source: Self.commonPhraseHIDSource(profileID))
         }
+        monitor.onVoiceButtonEdge = { [weak self] profileID, isPressed, isSeized in
+            self?.handleXMRMM3VoiceButtonEdge(
+                profileID: profileID,
+                isPressed: isPressed,
+                isSeized: isSeized
+            )
+        }
         return monitor
+    }
+
+    private static let xmrmM3FunctionKeyTapDuration: TimeInterval = 0.12
+
+    /// XMRM-M3 在 macOS 端不暴露蓝牙音频流服务，按键由 HID 捕获并按「方案 A」触发 Mac 语音输入工具。
+    private func handleXMRMM3VoiceButtonEdge(
+        profileID: UUID?,
+        isPressed: Bool,
+        isSeized: Bool
+    ) {
+        let model = profileID
+            .flatMap { id in settings.remoteDeviceProfiles.first(where: { $0.id == id })?.model }
+            ?? settings.selectedRemoteProfile?.model
+        guard model?.supportsBluetoothVoiceAudio != true else { return }
+        guard !bluetoothVoiceActive && !isStreaming else { return }
+        guard isXMRMM3VoiceButtonActive != isPressed else { return }
+
+        if let profileID {
+            selectRemoteProfile(profileID)
+        }
+        isXMRMM3VoiceButtonActive = isPressed
+
+        let usesFnTapMode = settings.voiceKeyMode == .function && settings.voiceFnTapModeEnabled
+        if isPressed {
+            if usesFnTapMode {
+                fireXMRMM3FnTap(phase: "start_tap")
+            } else if isSeized || settings.voiceKeyMode != .function {
+                _ = updateVoiceKeyState(streaming: true, forceSoftware: true, owner: .bluetooth)
+            } else {
+                isVoiceTriggerEnabled = false
+                voiceShortcutStatus = LocalizedMessage("voice_button.status.\(settings.voiceKeyMode.rawValue)_pressed")
+                AppLogger.shared.write("XMRM-M3 VOICE edge=down path=hardware_mapping")
+            }
+            return
+        }
+
+        if usesFnTapMode {
+            fireXMRMM3FnTap(phase: "stop_tap")
+        } else if voiceKeyLatch.isHeld || pendingVoiceKeyMode != nil {
+            _ = releaseVoiceKeyIfNeeded(owner: .bluetooth, forceSoftware: true)
+        } else {
+            isVoiceTriggerEnabled = true
+            voiceShortcutStatus = LocalizedMessage("voice_button.status.\(settings.voiceKeyMode.rawValue)_released")
+            AppLogger.shared.write("XMRM-M3 VOICE edge=up path=hardware_mapping")
+        }
+    }
+
+    private func fireXMRMM3FnTap(phase: String) {
+        xmrmM3VoiceTapRelease?.cancel()
+        xmrmM3VoiceTapRelease = nil
+        if voiceKeyLatch.isHeld {
+            _ = releaseVoiceKeyIfNeeded(owner: .bluetooth, forceSoftware: true)
+        }
+        guard updateVoiceKeyState(streaming: true, forceSoftware: true, owner: .bluetooth) else {
+            AppLogger.shared.write("XMRM-M3 VOICE fn_drive=taps phase=\(phase) result=press_failed")
+            return
+        }
+        AppLogger.shared.write(
+            "XMRM-M3 VOICE fn_drive=taps phase=\(phase) release_after_ms=" +
+                "\(Int(Self.xmrmM3FunctionKeyTapDuration * 1_000))"
+        )
+        let work = DispatchWorkItem { [weak self] in
+            guard let self else { return }
+            self.xmrmM3VoiceTapRelease = nil
+            _ = self.releaseVoiceKeyIfNeeded(owner: .bluetooth, forceSoftware: true)
+            AppLogger.shared.write("XMRM-M3 VOICE fn_drive=taps phase=\(phase)_released")
+        }
+        xmrmM3VoiceTapRelease = work
+        DispatchQueue.main.asyncAfter(
+            deadline: .now() + Self.xmrmM3FunctionKeyTapDuration,
+            execute: work
+        )
+    }
+
+    private func resetXMRMM3VoiceButtonState(reason: String) {
+        xmrmM3VoiceTapRelease?.cancel()
+        xmrmM3VoiceTapRelease = nil
+        let wasActive = isXMRMM3VoiceButtonActive
+        isXMRMM3VoiceButtonActive = false
+        if voiceKeyLatch.isHeld || pendingVoiceKeyMode != nil {
+            _ = releaseVoiceKeyIfNeeded(owner: .bluetooth, forceSoftware: true)
+        } else if wasActive {
+            isVoiceTriggerEnabled = true
+            voiceShortcutStatus = LocalizedMessage("voice_button.status.\(settings.voiceKeyMode.rawValue)_released")
+        }
+        if wasActive {
+            AppLogger.shared.write("XMRM-M3 VOICE reset reason=\(reason)")
+        }
     }
 
     func setExperimentalContinuousRecordingEnabled(_ enabled: Bool) {
@@ -8974,9 +9072,22 @@ final class BridgeAppModel: NSObject, ObservableObject, XiaomiBluetoothBridgeDel
         shouldKeepVirtualAudioActive(allowingIdleBridgeRelease: false)
     }
 
+    private var readyBluetoothVoiceBridgeCount: Int {
+        bluetoothBridges.reduce(into: 0) { count, entry in
+            guard let state = bluetoothBridgeStates[ObjectIdentifier(entry.value)],
+                  case .ready = state else { return }
+            let model = settings.profileID(forBluetoothIdentifier: entry.key)
+                .flatMap { id in
+                    settings.remoteDeviceProfiles.first(where: { $0.id == id })?.model
+                } ?? .rc003
+            guard model.supportsBluetoothVoiceAudio else { return }
+            count += 1
+        }
+    }
+
     private func shouldKeepVirtualAudioActive(allowingIdleBridgeRelease: Bool) -> Bool {
         VirtualAudioConnectionLifecyclePolicy.shouldBeActive(
-            readyBluetoothBridgeCount: readyBluetoothBridgeCount,
+            readyBluetoothBridgeCount: readyBluetoothVoiceBridgeCount,
             bluetoothVoiceActive: bluetoothVoiceActive,
             mobileVoiceActive: macMicrophoneEnabled || activeMobileVoiceSource != nil ||
                 !appleRemoteVoiceDevices.isEmpty || appleRemoteVoiceStopping,

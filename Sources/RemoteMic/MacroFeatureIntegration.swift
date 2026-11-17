@@ -1366,7 +1366,7 @@ final class MacroFeatureIntegration: ObservableObject {
         switch model {
         case .rc001:
             return SayAllMacroRemoteMic.RemoteMicRemotePresentation.xiaomiRC001(displayName: "RC001")
-        case .rc003, .unknown, nil:
+        case .rc003, .xmrmM3, .unknown, nil:
             return SayAllMacroRemoteMic.RemoteMicRemotePresentation.xiaomiRC003(displayName: "RC003")
         case .chromecastVoiceRemote:
             #if SAYALL_CHROMECAST_ENABLED && canImport(SayAllChromecast)

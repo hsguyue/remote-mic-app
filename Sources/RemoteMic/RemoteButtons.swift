@@ -21,6 +21,9 @@ enum RemoteButton: String, CaseIterable, Codable, Identifiable {
     case youtube
     case netflix
     case input
+    case xiaomiTVPlus = "xiaomi_tv_plus"
+    case primeVideo = "prime_video"
+    case apps
 
     /// Buttons physically present on the Xiaomi RC001/RC003 layout.
     /// Siri Remote has its own private page and does not use this list.
@@ -28,6 +31,18 @@ enum RemoteButton: String, CaseIterable, Codable, Identifiable {
         .power, .up, .left, .ok, .right, .down, .back,
         .volumeUp, .home, .volumeDown, .menu, .tv,
     ]
+
+    /// 小米盒子 2 代海外版遥控器（XMRM-M3 / FH005）除顶部 Google 语音键外的全部 15 颗可配置实体按键。
+    static let xmrmM3Cases: [RemoteButton] = [
+        .power, .up, .left, .ok, .right, .down,
+        .xiaomiTVPlus, .back, .home,
+        .netflix, .primeVideo, .youtube, .apps,
+        .volumeUp, .volumeDown,
+    ]
+
+    static func cases(for model: XiaomiRemoteModel?) -> [RemoteButton] {
+        model == .xmrmM3 ? xmrmM3Cases : xiaomiCases
+    }
 
     var id: String { rawValue }
 
@@ -54,6 +69,9 @@ enum RemoteButton: String, CaseIterable, Codable, Identifiable {
         case .youtube: return 0x1002
         case .netflix: return 0x1003
         case .input: return 0x1004
+        case .xiaomiTVPlus: return 0x1005
+        case .primeVideo: return 0x1006
+        case .apps: return 0x1007
         }
     }
 
@@ -76,6 +94,9 @@ enum RemoteButton: String, CaseIterable, Codable, Identifiable {
         case .youtube: return "YouTube"
         case .netflix: return "NETFLIX"
         case .input: return localization.text("remote.button.short.input")
+        case .xiaomiTVPlus: return "Xiaomi TV+"
+        case .primeVideo: return "prime video"
+        case .apps: return "APPS"
         }
     }
 
@@ -98,6 +119,9 @@ enum RemoteButton: String, CaseIterable, Codable, Identifiable {
         case .youtube: return localization.text("remote.button.full.youtube")
         case .netflix: return localization.text("remote.button.full.netflix")
         case .input: return localization.text("remote.button.full.input")
+        case .xiaomiTVPlus: return localization.text("remote.button.full.xiaomi_tv_plus")
+        case .primeVideo: return localization.text("remote.button.full.prime_video")
+        case .apps: return localization.text("remote.button.full.apps")
         }
     }
 
@@ -105,8 +129,39 @@ enum RemoteButton: String, CaseIterable, Codable, Identifiable {
         uniqueKeysWithValues: xiaomiCases.map { ($0.hidUsage, $0) }
     )
 
-    static func buttons(for usages: Set<UInt16>) -> Set<RemoteButton> {
-        Set(usages.compactMap { usageMap[$0] })
+    /// XMRM-M3（0x2717:0x32B9）Google 语音键 HID Consumer Usage（0x0C / 0x00CF）。
+    static let xmrmM3VoiceUsage: UInt16 = 0x00CF
+
+    /// XMRM-M3（0x2717:0x32B9）实机采样的全部 15 颗可自定义按键 HID Consumer Usage（ReportID = 1）。
+    static let xmrmM3UsageMap: [UInt16: RemoteButton] = [
+        0x0030: .power,
+        0x0042: .up,
+        0x0043: .down,
+        0x0044: .left,
+        0x0045: .right,
+        0x0041: .ok,
+        0x0196: .xiaomiTVPlus,
+        0x0224: .back,
+        0x0223: .home,
+        0x008E: .netflix,
+        0x00B0: .primeVideo,
+        0x0188: .youtube,
+        0x0199: .apps,
+        0x00E9: .volumeUp,
+        0x00EA: .volumeDown,
+    ]
+
+    static func usageMap(forProductID productID: Int?) -> [UInt16: RemoteButton] {
+        productID == 0x32B9 ? xmrmM3UsageMap : usageMap
+    }
+
+    static func voiceUsage(forProductID productID: Int?) -> UInt16? {
+        productID == 0x32B9 ? xmrmM3VoiceUsage : nil
+    }
+
+    static func buttons(for usages: Set<UInt16>, productID: Int? = nil) -> Set<RemoteButton> {
+        let map = usageMap(forProductID: productID)
+        return Set(usages.compactMap { map[$0] })
     }
 
     var nativeEvent: RemoteNativeEvent? {
@@ -131,7 +186,7 @@ enum RemoteButton: String, CaseIterable, Codable, Identifiable {
         case .mute: return .systemKey(type: 3)
         // Chromecast 的三颗专有键由私有包的 HID 通道独占读取：映射开启时设备被整个独占，
         // 系统侧不会同时收到事件，因此不存在需要抑制的原生事件。
-        case .youtube, .netflix, .input: return nil
+        case .youtube, .netflix, .input, .xiaomiTVPlus, .primeVideo, .apps: return nil
         }
     }
 
@@ -192,6 +247,9 @@ extension RemoteButton {
         case .tv: return "tv"
         case .playPause: return "playpause.fill"
         case .mute: return "speaker.slash"
+        case .xiaomiTVPlus: return "play.tv"
+        case .primeVideo: return "play.rectangle"
+        case .apps: return "square.grid.3x3"
         // 这三颗键只属于 Chromecast 遥控器，由它自己的画布渲染；小米画布的卡片集合是
         // `RemoteButton.xiaomiCases`，不会出现它们，这里只是满足枚举穷尽性。
         case .youtube, .netflix, .input: return "questionmark"
