@@ -406,15 +406,17 @@ struct FirstUseDiagnosticContext: Equatable {
             if !capabilities.remoteConnected { return .remoteNotFound }
             if !capabilities.remoteButtonObserved { return .remoteButtonNotReady }
         case .audio:
-            if !hasSelectedAudioUID { return .audioNoOutputDevice }
-            if !capabilities.audioOutputSelected { return .audioSelectedDeviceMissing }
-            if !OnboardingAudioReadinessPolicy.isSatisfied(
-                controlMethod: controlMethod,
-                controlSource: controlSource,
-                audioOutputSelected: capabilities.audioOutputSelected,
-                audioReady: capabilities.audioReady
-            ) {
-                return .audioOutputNotReady
+            if capabilities.requiresVirtualAudioDevice {
+                if !hasSelectedAudioUID { return .audioNoOutputDevice }
+                if !capabilities.audioOutputSelected { return .audioSelectedDeviceMissing }
+                if !OnboardingAudioReadinessPolicy.isSatisfied(
+                    controlMethod: controlMethod,
+                    controlSource: controlSource,
+                    audioOutputSelected: capabilities.audioOutputSelected,
+                    audioReady: capabilities.audioReady
+                ) {
+                    return .audioOutputNotReady
+                }
             }
         case .voiceTest:
             if voiceAuthorizationRequired { return .voiceAuthorizationRequired }
@@ -422,7 +424,9 @@ struct FirstUseDiagnosticContext: Equatable {
                 return voiceAttempt.failureReason
             }
             if !capabilities.voiceSessionStarted { return .voiceSessionNotStarted }
-            if !capabilities.voiceSamplesReceived { return .voiceNoSamples }
+            if capabilities.requiresVirtualAudioDevice, !capabilities.voiceSamplesReceived {
+                return .voiceNoSamples
+            }
             if !capabilities.voiceSessionEnded { return .voiceSessionNotEnded }
             if capabilities.manualTranscriptInputObserved { return .voiceManualInput }
             if !capabilities.transcriptionAppeared { return .voiceNoTranscript }

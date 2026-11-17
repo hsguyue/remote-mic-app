@@ -342,6 +342,23 @@ struct OnboardingView: View {
                 break
             }
         }
+        .onChange(of: model.isXMRMM3VoiceButtonActive) { isActive in
+            guard usesMacMicrophoneOnly else { return }
+            switch settings.onboardingStep {
+            case .remote where isActive:
+                recordRemoteVoiceButtonPress()
+            case .voiceTest:
+                if isActive {
+                    guard voiceAttempt.phase != .recording else { return }
+                    beginVoiceAttempt(triggerPath: "xmrm_m3_hid")
+                    voiceSamplesReceived = true
+                } else if voiceAttempt.phase == .recording {
+                    endVoiceAttempt()
+                }
+            default:
+                break
+            }
+        }
         .onReceive(model.$hasReceivedCurrentVoiceSamples.removeDuplicates()) { hasReceivedSamples in
             guard settings.onboardingStep == .voiceTest,
                   hasReceivedSamples,
@@ -412,7 +429,7 @@ struct OnboardingView: View {
                   voiceSessionEnded,
                   !manualTranscriptInputObserved else { return }
             refreshVoiceAttemptObservableState(atDeadline: false)
-            if voiceAttempt.audioDelivery.result == .deliveredToSelectedDevice {
+            if usesMacMicrophoneOnly || voiceAttempt.audioDelivery.result == .deliveredToSelectedDevice {
                 finishVoiceAttempt(result: .passed)
             } else {
                 scheduleVoiceCompletionEvaluation(attemptID: voiceAttempt.attemptID)
@@ -1861,45 +1878,54 @@ struct OnboardingView: View {
     private var audioContent: some View {
         VStack(alignment: .leading, spacing: 18) {
             onboardingTitle("onboarding.audio.title")
-            Text(verbatim: localization.text("onboarding.audio.detail"))
-                .font(.system(size: 14))
-                .foregroundStyle(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
-
-            if supportedAudioDevices.isEmpty {
+            if usesMacMicrophoneOnly {
                 statusCard(
-                    icon: "waveform.badge.magnifyingglass",
-                    title: localization.text("onboarding.audio.no_devices"),
-                    detail: localization.text("onboarding.audio.device_detail"),
-                    isComplete: false
+                    icon: "checkmark.circle.fill",
+                    title: localization.text("onboarding.audio.mac_microphone_title"),
+                    detail: localization.text("onboarding.audio.mac_microphone_detail"),
+                    isComplete: true
                 )
             } else {
-                VStack(spacing: 8) {
-                    ForEach(supportedAudioDevices, id: \.uid) { device in
-                        audioDeviceRow(device)
+                Text(verbatim: localization.text("onboarding.audio.detail"))
+                    .font(.system(size: 14))
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                if supportedAudioDevices.isEmpty {
+                    statusCard(
+                        icon: "waveform.badge.magnifyingglass",
+                        title: localization.text("onboarding.audio.no_devices"),
+                        detail: localization.text("onboarding.audio.device_detail"),
+                        isComplete: false
+                    )
+                } else {
+                    VStack(spacing: 8) {
+                        ForEach(supportedAudioDevices, id: \.uid) { device in
+                            audioDeviceRow(device)
+                        }
                     }
                 }
-            }
 
-            statusCard(
-                icon: onboardingAudioReady
-                    ? "checkmark.circle.fill"
-                    : "speaker.wave.2",
-                title: selectedAudioDeviceTitle,
-                detail: selectedAudioDeviceDetail,
-                isComplete: onboardingAudioReady
-            )
+                statusCard(
+                    icon: onboardingAudioReady
+                        ? "checkmark.circle.fill"
+                        : "speaker.wave.2",
+                    title: selectedAudioDeviceTitle,
+                    detail: selectedAudioDeviceDetail,
+                    isComplete: onboardingAudioReady
+                )
 
-            if failureReason == .audioNoOutputDevice ||
-                failureReason == .audioSelectedDeviceMissing {
-                onboardingActionButton(id: "audio.install-guide") {
-                    if interactionProbe == nil {
-                        model.openDoubaoDriverInstructions(using: localization)
+                if failureReason == .audioNoOutputDevice ||
+                    failureReason == .audioSelectedDeviceMissing {
+                    onboardingActionButton(id: "audio.install-guide") {
+                        if interactionProbe == nil {
+                            model.openDoubaoDriverInstructions(using: localization)
+                        }
+                    } label: {
+                        Text(verbatim: localization.text("audio.compatibility.open_install_guide"))
                     }
-                } label: {
-                    Text(verbatim: localization.text("audio.compatibility.open_install_guide"))
+                    .buttonStyle(.bordered)
                 }
-                .buttonStyle(.bordered)
             }
         }
     }
@@ -2184,7 +2210,9 @@ struct OnboardingView: View {
                             "onboarding.voice_test.microphone_confirmation.checkbox",
                             arguments: [
                                 localization.text(settings.onboardingVoiceTool.titleKey),
-                                selectedAudioDevice?.name ?? localization.text("onboarding.audio.select_required"),
+                                usesMacMicrophoneOnly
+                                    ? localization.text("onboarding.audio.mac_microphone_name")
+                                    : (selectedAudioDevice?.name ?? localization.text("onboarding.audio.select_required")),
                             ]
                         ).text(using: localization)
                     )
@@ -2386,15 +2414,19 @@ struct OnboardingView: View {
     }
 
     private var displayedControlButtons: [RemoteButton]? {
-        Self.displayedControlButtons(for: settings.onboardingControlSource)
+        Self.displayedControlButtons(
+            for: settings.onboardingControlSource,
+            remoteModel: settings.selectedRemoteProfile?.model
+        )
     }
 
     static func displayedControlButtons(
-        for source: OnboardingControlSource
+        for source: OnboardingControlSource,
+        remoteModel: XiaomiRemoteModel? = nil
     ) -> [RemoteButton]? {
         switch source {
         case .xiaomiRemote:
-            return RemoteButton.xiaomiCases
+            return RemoteButton.cases(for: remoteModel)
         case .siriRemote:
             return [
                 .power, .up, .left, .ok, .right, .down,
@@ -2885,15 +2917,23 @@ struct OnboardingView: View {
             }
         case .audio:
             sidePanel(titleKey: "onboarding.side.audio") {
-                sideCheck("onboarding.side.device_found", isComplete: !supportedAudioDevices.isEmpty)
-                sideCheck("onboarding.side.device_selected", isComplete: audioOutputSelected)
-                sideCheck(audioSideCheckKey, isComplete: onboardingAudioReady)
+                if usesMacMicrophoneOnly {
+                    sideCheck("onboarding.side.mac_microphone_ready", isComplete: true)
+                } else {
+                    sideCheck("onboarding.side.device_found", isComplete: !supportedAudioDevices.isEmpty)
+                    sideCheck("onboarding.side.device_selected", isComplete: audioOutputSelected)
+                    sideCheck(audioSideCheckKey, isComplete: onboardingAudioReady)
+                }
             }
         case .voiceTest:
             sidePanel(titleKey: "onboarding.side.voice_test") {
                 sideCheck("onboarding.side.voice_key", isComplete: voiceSessionStarted && voiceSessionEnded)
-                sideCheck("onboarding.side.samples", isComplete: voiceSamplesReceived)
-                sideCheck(audioSideCheckKey, isComplete: onboardingAudioReady)
+                if !usesMacMicrophoneOnly {
+                    sideCheck("onboarding.side.samples", isComplete: voiceSamplesReceived)
+                    sideCheck(audioSideCheckKey, isComplete: onboardingAudioReady)
+                } else {
+                    sideCheck("onboarding.side.mac_microphone_ready", isComplete: true)
+                }
                 sideCheck("onboarding.side.transcript", isComplete: verifiedTranscriptionAppeared)
             }
         case .controls:
@@ -3153,6 +3193,12 @@ struct OnboardingView: View {
         OnboardingPhase.phase(for: settings.onboardingStep)
     }
 
+    private var usesMacMicrophoneOnly: Bool {
+        settings.onboardingControlMethod == .physicalRemote &&
+            settings.selectedRemoteProfile?.model.supportsBluetoothVoiceAudio == false &&
+            settings.selectedRemoteProfile?.model == .xmrmM3
+    }
+
     private var capabilities: OnboardingCapabilities {
         OnboardingCapabilities(
             systemFunctionKeyAvailable: systemFunctionKeyAvailable,
@@ -3168,7 +3214,8 @@ struct OnboardingView: View {
             voiceSessionEnded: voiceSessionEnded,
             transcriptionAppeared: transcriptionAppeared,
             manualTranscriptInputObserved: manualTranscriptInputObserved,
-            testedRemoteButtonCount: testedControlButtons.count
+            testedRemoteButtonCount: testedControlButtons.count,
+            requiresVirtualAudioDevice: !usesMacMicrophoneOnly
         )
     }
 
@@ -3324,7 +3371,8 @@ struct OnboardingView: View {
             controlMethod: settings.onboardingControlMethod,
             controlSource: settings.onboardingControlSource,
             audioOutputSelected: audioOutputSelected,
-            audioReady: model.isAudioOutputReady
+            audioReady: model.isAudioOutputReady,
+            requiresVirtualAudioDevice: !usesMacMicrophoneOnly
         )
     }
 
@@ -3501,6 +3549,9 @@ struct OnboardingView: View {
     }
 
     private var sayAllAudioOutputConfigurationText: String {
+        if usesMacMicrophoneOnly {
+            return localization.text("onboarding.audio.mac_microphone_name")
+        }
         guard let selectedAudioDevice else {
             return localization.text("onboarding.audio.select_required")
         }
@@ -4508,11 +4559,11 @@ struct OnboardingView: View {
 
         let result = FirstUseVoiceAttemptPolicy.terminalResultAfterSession(
             manualInputObserved: manualTranscriptInputObserved,
-            samplesReceived: voiceSamplesReceived,
+            samplesReceived: usesMacMicrophoneOnly ? true : voiceSamplesReceived,
             transcriptionAppeared: transcriptionAppeared,
             triggerReady: voiceAttempt.triggerReady,
             focusReadyAtDeadline: targetReadyAtEnd,
-            audioDeliveryResult: voiceAttempt.audioDelivery.result,
+            audioDeliveryResult: usesMacMicrophoneOnly ? .deliveredToSelectedDevice : voiceAttempt.audioDelivery.result,
             finalObservation: false
         )
         if result == .manualInput || result == .noSamples || result == .audioDeliveryFailed {
@@ -4571,11 +4622,11 @@ struct OnboardingView: View {
             refreshVoiceAttemptObservableState(atDeadline: true)
             let result = FirstUseVoiceAttemptPolicy.terminalResultAfterSession(
                 manualInputObserved: manualTranscriptInputObserved,
-                samplesReceived: voiceSamplesReceived,
+                samplesReceived: usesMacMicrophoneOnly ? true : voiceSamplesReceived,
                 transcriptionAppeared: transcriptionAppeared,
                 triggerReady: voiceAttempt.triggerReady,
                 focusReadyAtDeadline: voiceAttempt.focusReadyAtDeadline == true,
-                audioDeliveryResult: voiceAttempt.audioDelivery.result,
+                audioDeliveryResult: usesMacMicrophoneOnly ? .deliveredToSelectedDevice : voiceAttempt.audioDelivery.result,
                 finalObservation: true
             )
             finishVoiceAttempt(result: result)

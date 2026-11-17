@@ -104,6 +104,9 @@
 "remote.button.full.youtube" = "YouTube button";
 "remote.button.full.netflix" = "NETFLIX button";
 "remote.button.full.input" = "Input button";
+"remote.button.full.xiaomi_tv_plus" = "Xiaomi TV+ button";
+"remote.button.full.prime_video" = "prime video button";
+"remote.button.full.apps" = "APPS button";
 "remote.button.short.input" = "Input";
 "siri_remote.mapping.voice.title" = "Siri voice button";
 "siri_remote.mapping.voice.fixed" = "Voice Input Only";
@@ -348,6 +351,7 @@
 "remote.device.model" = "Model";
 "remote.device.model.rc001" = "Xiaomi Bluetooth Remote 2";
 "remote.device.model.rc003" = "Xiaomi Bluetooth Remote 2 Pro";
+"remote.device.model.xmrm_m3" = "Xiaomi Box 2nd Remote (XMRM-M3)";
 "remote.device.model.unrecognized" = "Unrecognized remote";
 "remote.device.model.apple_siri_remote_a2854" = "Apple Remote (7th Generation)";
 "remote.device.model.apple_siri_remote_a2540" = "Apple Remote (6th Generation)";
@@ -503,6 +507,7 @@
 "button_mapping.voice_button.title" = "Voice Button";
 "button_mapping.voice_button.fixed" = "Voice Trigger Key";
 "button_mapping.voice_button.detail" = "Hold to talk. Choose Fn/Globe, Left or Right Command, or Left or Right Option as the trigger key. The voice button is separate from other button actions.";
+"button_mapping.voice_button.detail.xmrm_m3" = "Hold to trigger Mac voice input (uses your Mac microphone for this model).";
 "button_mapping.action.not_set" = "No action";
 "button_mapping.single_click.help" = "Runs after one press. It waits briefly when a double-click action is set.";
 "button_mapping.double_click.effect" = "A single press waits briefly to distinguish it from a double press. Hold-to-repeat is disabled.";
@@ -1006,6 +1011,9 @@
 "onboarding.audio.refresh" = "Check Again";
 "onboarding.audio.on_demand_detail" = "The selected device will connect automatically when phone voice input starts. The next step verifies real audio and text.";
 "onboarding.audio.on_demand_detail_remote" = "The selected device will connect automatically when you hold the remote's voice button. The next step verifies real audio and text.";
+"onboarding.audio.mac_microphone_name" = "Mac Built-in Microphone";
+"onboarding.audio.mac_microphone_title" = "Use Mac Built-in Microphone";
+"onboarding.audio.mac_microphone_detail" = "XMRM-M3 triggers voice input tools using your Mac's built-in microphone, so no virtual audio device is required. Click Continue to proceed.";
 "onboarding.voice_test.title" = "Test voice typing";
 "onboarding.voice_test.detail" = "Click the field, then use the voice button as shown.";
 "onboarding.voice_test.volume.title" = "Adjust output volume";
@@ -1158,6 +1166,7 @@
 "onboarding.side.device_found" = "Supported virtual audio device detected";
 "onboarding.side.device_selected" = "Virtual audio device selected";
 "onboarding.side.audio_ready" = "Audio output ready";
+"onboarding.side.mac_microphone_ready" = "Using Mac microphone";
 "onboarding.side.audio_on_demand" = "Audio connects when voice starts";
 "onboarding.side.voice_key" = "Voice session started and ended";
 "onboarding.side.samples" = "Voice audio received";

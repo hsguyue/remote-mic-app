@@ -104,6 +104,9 @@
 "remote.button.full.youtube" = "YouTube 键";
 "remote.button.full.netflix" = "Netflix 键";
 "remote.button.full.input" = "信源键";
+"remote.button.full.xiaomi_tv_plus" = "Xiaomi TV+ 键";
+"remote.button.full.prime_video" = "prime video 键";
+"remote.button.full.apps" = "APPS 键";
 "remote.button.short.input" = "信源";
 "siri_remote.mapping.voice.title" = "Siri 语音键";
 "siri_remote.mapping.voice.fixed" = "固定语音输入";
@@ -348,6 +351,7 @@
 "remote.device.model" = "型号";
 "remote.device.model.rc001" = "小米蓝牙遥控器 2";
 "remote.device.model.rc003" = "小米蓝牙遥控器 2 Pro";
+"remote.device.model.xmrm_m3" = "小米盒子 2 代遥控器 (XMRM-M3)";
 "remote.device.model.unrecognized" = "未识别的遥控器";
 "remote.device.model.apple_siri_remote_a2854" = "苹果遥控器第 7 代";
 "remote.device.model.apple_siri_remote_a2540" = "苹果遥控器第 6 代";
@@ -503,6 +507,7 @@
 "button_mapping.voice_button.title" = "语音键";
 "button_mapping.voice_button.fixed" = "语音触发键";
 "button_mapping.voice_button.detail" = "按住说话；可选择 Fn/地球键、左/右 Command 或左/右 Option 长按，不参与普通按键动作映射。";
+"button_mapping.voice_button.detail.xmrm_m3" = "按住触发 Mac 语音输入工具（本型号通过 Mac 本机麦克风收音）。";
 "button_mapping.action.not_set" = "无动作";
 "button_mapping.single_click.help" = "按一下立即执行；设置双击后会稍等片刻再确认。";
 "button_mapping.double_click.effect" = "单击会稍等片刻以区分双击；按住重复同时停用。";
@@ -1005,6 +1010,9 @@
 "onboarding.audio.refresh" = "重新检查";
 "onboarding.audio.on_demand_detail" = "手机开始语音时会自动连接所选设备；下一步将通过真实声音和文字进行验证。";
 "onboarding.audio.on_demand_detail_remote" = "按住遥控器语音键时会自动连接所选设备；下一步将通过真实声音和文字进行验证。";
+"onboarding.audio.mac_microphone_name" = "Mac 本机麦克风";
+"onboarding.audio.mac_microphone_title" = "直接使用 Mac 本机麦克风";
+"onboarding.audio.mac_microphone_detail" = "XMRM-M3 使用 Mac 本机麦克风配合语音键触发输入工具，无需安装或选择虚拟音频设备，请直接点击“继续”。";
 "onboarding.voice_test.title" = "亲自说一句，确认真的能用";
 "onboarding.voice_test.detail" = "点一下下面的输入框，按照上方提示使用语音键说一句话。";
 "onboarding.voice_test.volume.title" = "调整音量";
@@ -1157,6 +1165,7 @@
 "onboarding.side.device_found" = "支持的虚拟音频设备已检测";
 "onboarding.side.device_selected" = "虚拟音频设备已选中";
 "onboarding.side.audio_ready" = "音频输出正常";
+"onboarding.side.mac_microphone_ready" = "使用 Mac 本机麦克风";
 "onboarding.side.audio_on_demand" = "语音开始时连接音频";
 "onboarding.side.voice_key" = "语音键已按下并松开";
 "onboarding.side.samples" = "语音声音已收到";

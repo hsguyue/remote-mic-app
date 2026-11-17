@@ -631,6 +631,65 @@ check(
     "a voice device is adopted only with a saved identity or a verified model name"
 )
 
+check(
+    XiaomiRemoteModel.identified(by: "FH005") == .xmrmM3 &&
+        VoiceRemoteCatalog.photoResource(for: .xmrmM3) == "XMRM-M3-remote-photo" &&
+        VoiceRemoteCatalog.adoptedAdvertisedNames.contains("xiaomi rc") &&
+        !XiaomiRemoteModel.xmrmM3.supportsBluetoothVoiceAudio,
+    "XMRM-M3 model catalog, photo resource, advertised name, and non-ATVV audio capability"
+)
+check(
+    RemoteButton.cases(for: .xmrmM3).count == 15 &&
+        RemoteButton.cases(for: .xmrmM3).contains(.xiaomiTVPlus) &&
+        RemoteButton.cases(for: .xmrmM3).contains(.primeVideo) &&
+        RemoteButton.cases(for: .xmrmM3).contains(.apps) &&
+        RemoteButton.usageMap(forProductID: 0x32B9)[0x0196] == .xiaomiTVPlus &&
+        RemoteButton.usageMap(forProductID: 0x32B9)[0x00B0] == .primeVideo &&
+        RemoteButton.usageMap(forProductID: 0x32B9)[0x0199] == .apps &&
+        RemoteButton.voiceUsage(forProductID: 0x32B9) == 0x00CF &&
+        RemoteHIDReportParser.usages(reportID: 1, data: Data([0x96, 0x01])) == [0x0196],
+    "XMRM-M3 15-button Consumer Usage table and voice usage"
+)
+let xmrmVoiceFn = RemoteVoiceFunctionMappingPolicy.voiceMapping(forProductID: 0x32B9, neutralize: false)
+let xmrmVoiceNeutral = RemoteVoiceFunctionMappingPolicy.voiceMapping(forProductID: 0x32B9, neutralize: true)
+let xmrmPowerF20 = RemoteVoiceFunctionMappingPolicy.suppressedPowerMapping(forProductID: 0x32B9)
+check(
+    xmrmVoiceFn.source == 0x0000_000C_0000_00CF &&
+        xmrmVoiceFn.destination == 0x0000_00FF_0000_0003 &&
+        xmrmVoiceNeutral.source == 0x0000_000C_0000_00CF &&
+        xmrmVoiceNeutral.destination == 0 &&
+        xmrmPowerF20.source == 0x0000_000C_0000_0030 &&
+        xmrmPowerF20.destination == 0x0000_0007_0000_006F,
+    "XMRM-M3 Consumer voice and power key mappings"
+)
+let macMicCapabilities = OnboardingCapabilities(
+    bluetoothGranted: true,
+    inputMonitoringGranted: true,
+    accessibilityGranted: true,
+    remoteConnected: true,
+    voiceSessionStarted: true,
+    voiceSamplesReceived: false,
+    voiceSessionEnded: true,
+    transcriptionAppeared: true,
+    requiresVirtualAudioDevice: false
+)
+check(
+    OnboardingFlowPolicy.canContinue(
+        from: .audio,
+        voiceTool: .doubao,
+        capabilities: macMicCapabilities
+    ) && OnboardingFlowPolicy.canContinue(
+        from: .voiceTest,
+        voiceTool: .doubao,
+        capabilities: macMicCapabilities
+    ) && OnboardingFlowPolicy.canContinue(
+        from: .complete,
+        voiceTool: .doubao,
+        capabilities: macMicCapabilities
+    ),
+    "XMRM-M3 Mac-microphone onboarding flow passes audio, voiceTest, and complete without virtual audio device"
+)
+
 print("RESULT passed=\(passed) failed=\(failed)")
 if failed > 0 {
     exit(1)

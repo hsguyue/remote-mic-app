@@ -2706,7 +2706,7 @@ struct SettingsView: View {
             RemoteMappingCanvas(
                 selectedButton: $selectedRemoteButton,
                 activeButtons: model.activeRemoteButtons,
-                voiceActive: model.isStreaming,
+                voiceActive: model.isStreaming || model.isXMRMM3VoiceButtonActive,
                 remoteModel: settings.selectedRemoteProfile?.model,
                 actionSummary: { button, trigger in mappingActionSummary(for: button, trigger: trigger) },
                 holdSummary: { button in mappingHoldSummary(for: button) },

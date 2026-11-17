@@ -676,7 +676,7 @@ enum OnboardingRemotePhotoKind: Equatable {
             // Only a Xiaomi profile may refine the image. A previously selected
             // Apple/Chromecast profile must never replace the Xiaomi card artwork.
             if let selectedModel,
-               selectedModel == .rc001 || selectedModel == .rc003 {
+               selectedModel == .rc001 || selectedModel == .rc003 || selectedModel == .xmrmM3 {
                 guard let resource = VoiceRemoteCatalog.photoResource(for: selectedModel) else {
                     return .placeholder
                 }
@@ -751,6 +751,7 @@ struct OnboardingCapabilities: Equatable {
     var transcriptionAppeared = false
     var manualTranscriptInputObserved = false
     var testedRemoteButtonCount = 0
+    var requiresVirtualAudioDevice = true
 }
 
 enum OnboardingAudioSelectionPolicy {
@@ -787,9 +788,11 @@ enum OnboardingAudioReadinessPolicy {
         controlMethod: OnboardingControlMethod,
         controlSource: OnboardingControlSource,
         audioOutputSelected: Bool,
-        audioReady: Bool
+        audioReady: Bool,
+        requiresVirtualAudioDevice: Bool = true
     ) -> Bool {
-        audioOutputSelected &&
+        guard requiresVirtualAudioDevice else { return true }
+        return audioOutputSelected &&
             (usesOnDemandAudioOutput(controlMethod: controlMethod, controlSource: controlSource) ||
                 audioReady)
     }
@@ -885,11 +888,12 @@ enum OnboardingFlowPolicy {
                 controlMethod: controlMethod,
                 controlSource: controlSource,
                 audioOutputSelected: capabilities.audioOutputSelected,
-                audioReady: capabilities.audioReady
+                audioReady: capabilities.audioReady,
+                requiresVirtualAudioDevice: capabilities.requiresVirtualAudioDevice
             )
         case .voiceTest:
             return capabilities.voiceSessionStarted &&
-                capabilities.voiceSamplesReceived &&
+                (!capabilities.requiresVirtualAudioDevice || capabilities.voiceSamplesReceived) &&
                 capabilities.voiceSessionEnded &&
                 capabilities.transcriptionAppeared &&
                 !capabilities.manualTranscriptInputObserved
@@ -909,7 +913,8 @@ enum OnboardingFlowPolicy {
                     controlMethod: controlMethod,
                     controlSource: controlSource,
                     audioOutputSelected: capabilities.audioOutputSelected,
-                    audioReady: capabilities.audioReady
+                    audioReady: capabilities.audioReady,
+                    requiresVirtualAudioDevice: capabilities.requiresVirtualAudioDevice
                 )
         }
     }

@@ -53,6 +53,8 @@ struct VoiceRemoteCatalogTests {
         #expect(XiaomiRemoteModel.identified(by: "RC001") == .rc001)
         #expect(XiaomiRemoteModel.identified(by: "RC003") == .rc003)
         #expect(XiaomiRemoteModel.identified(by: " rc003 ") == .rc003)
+        #expect(XiaomiRemoteModel.identified(by: "FH005") == .xmrmM3)
+        #expect(XiaomiRemoteModel.identified(by: " fh005 ") == .xmrmM3)
         // ARN9 从未在任何真机上出现过（历史日志 0 次），归属无证据 → 不映射型号。
         // 型号不回写只影响展示名；连接（广播名白名单含 "arn9"）与音频解码
         // （桥里独立的 ADPCM 字节序检测）都不受影响。
@@ -69,6 +71,7 @@ struct VoiceRemoteCatalogTests {
         // 每款型号显式声明自己的真机图，不默认套用别款。
         #expect(VoiceRemoteCatalog.photoResource(for: .rc001) == "RC001-remote-photo")
         #expect(VoiceRemoteCatalog.photoResource(for: .rc003) == "RC003-remote-photo")
+        #expect(VoiceRemoteCatalog.photoResource(for: .xmrmM3) == "XMRM-M3-remote-photo")
         // 未识别型号 / 走私有包链路的型号：目录里没有，调用方必须显示占位。
         #expect(VoiceRemoteCatalog.photoResource(for: .unknown) == nil)
         #expect(VoiceRemoteCatalog.photoResource(for: .appleSiriRemoteA2854) == nil)
@@ -78,7 +81,7 @@ struct VoiceRemoteCatalogTests {
 
     @Test func advertisedNamesCoverEveryNameTheBridgeHasEverAdopted() {
         // 真机日志里出现过的、本桥应当继续采用的广播名，一个都不能少。
-        for name in ["mi rc", "小米蓝牙语音遥控器", "arn9", "小米蓝牙遥控器2", "小米蓝牙遥控器2 pro"] {
+        for name in ["mi rc", "xiaomi rc", "小米蓝牙语音遥控器", "arn9", "小米蓝牙遥控器2", "小米蓝牙遥控器2 pro"] {
             #expect(
                 VoiceRemoteCatalog.adoptedAdvertisedNames.contains(name),
                 "目录遗漏了已在真机上采用过的广播名：\(name)"

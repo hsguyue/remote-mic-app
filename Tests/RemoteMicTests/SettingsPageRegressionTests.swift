@@ -1468,6 +1468,30 @@ struct SettingsPageRegressionTests {
         #expect(RemoteMappingLayout.arrowTip(cardEdge: rightEndPoint, side: .right).x == rightEndPoint.x - 7)
     }
 
+    @Test func xmrmM3MappingLayoutCoversAll15ButtonsAndVoiceAnchor() throws {
+        let placements = RemoteMappingLayout.buttonPlacements(for: .xmrmM3)
+        #expect(placements.count == RemoteButton.xmrmM3Cases.count)
+        #expect(placements.count == 15)
+        #expect(Set(placements.map(\.button)) == Set(RemoteButton.xmrmM3Cases))
+        #expect(RemoteMappingLayout.canvasHeight(for: .xmrmM3) == 700)
+        #expect(RemoteMappingLayout.canvasHeight(for: .rc003) == RemoteMappingLayout.canvasHeight)
+
+        for placement in placements {
+            #expect((0...1).contains(placement.anchor.x))
+            #expect((0...1).contains(placement.anchor.y))
+            #expect((0...1).contains(placement.targetY))
+        }
+        let voiceAnchor = RemoteMappingLayout.voiceAnchor(for: .xmrmM3)
+        #expect((0...1).contains(voiceAnchor.x))
+        #expect((0...1).contains(voiceAnchor.y))
+        #expect((0...1).contains(RemoteMappingLayout.voiceTargetY(for: .xmrmM3)))
+
+        let leftCount = placements.filter { $0.side == .left }.count
+        let rightCount = placements.filter { $0.side == .right }.count
+        #expect(leftCount == 8)
+        #expect(rightCount == 7)
+    }
+
     @Test func redesignedPagesKeepEveryExistingUserAction() throws {
         let root = URL(fileURLWithPath: #filePath)
             .deletingLastPathComponent()
