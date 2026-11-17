@@ -1,6 +1,39 @@
-# SayAll
+# SayAll (Xiaomi TV Box S 2nd Gen / XMRM-M3 Edition)
 
 [简体中文](README.md)
+
+> This repository is forked from [HD838A/remote-mic-app](https://github.com/HD838A/remote-mic-app) with dedicated support for the **Xiaomi TV Box S (2nd Gen) Bluetooth remote (Model: `XMRM-M3`, Bluetooth name: `Xiaomi RC`)**.
+
+## Added Support: Xiaomi TV Box S 2nd Gen Remote (`XMRM-M3`)
+
+<p align="center">
+  <img src="Resources/XMRM-M3-remote-photo.png" alt="Xiaomi TV Box S (2nd Gen) XMRM-M3 Bluetooth Remote" width="220">
+</p>
+
+- **Hardware Identification & Battery**: Recognizes VID `0x2717` / PID `0x32B9`, DIS model `FH005`, and advertised name `Xiaomi RC`. Enters `.ready` cleanly without requiring ATVV voice GATT services (`AB5E0001`) while preserving battery reporting.
+- **15 Physical Keys + 16-Control Interactive Canvas**: Maps all printed physical buttons (`Power`, `Up/Down/Left/Right`, `OK`, `Xiaomi TV+`, `Back`, `Home`, `NETFLIX`, `prime video`, `YouTube`, `APPS`, `Volume+ / Volume-`) with single press, double press, and hold actions on a tailored remote photo canvas.
+- **System Key Neutralization**: Suppresses macOS Siri on the voice button (Consumer `0x00CF`) and prevents accidental Mac sleep on the power button (Consumer `0x0030`, remapped to `F20`).
+- **Mac Voice Input Integration**: Pressing the voice button drives your configured trigger key (`Fn/Globe`, Command, Option, or simulated `Fn` tap) to activate Mac voice input tools using your **Mac built-in microphone**.
+- **No Virtual Audio Driver Required**: Onboarding detects `XMRM-M3` and allows completing setup and voice verification directly with the Mac built-in microphone.
+
+<details>
+<summary><strong>Build & Package Locally from Source</strong></summary>
+
+```zsh
+# Run SelfTest and SwiftPM build
+SDKROOT=/Library/Developer/CommandLineTools/SDKs/MacOSX26.5.sdk ./scripts/test.sh
+
+# Build public compatibility app bundle (output: dist/SayAll.app)
+SDKROOT=/Library/Developer/CommandLineTools/SDKs/MacOSX26.5.sdk \
+  SAYALL_PRIVATE_PLATFORM_MODE=public \
+  SAYALL_BUILD_CHANNEL=public \
+  CODE_SIGN_IDENTITY=- \
+  ./scripts/build-app.sh
+```
+
+</details>
+
+---
 
 [Website](https://sayall.app/en/) · [Setup tutorial](https://sayall.app/en/tutorial/) · [Weibo](https://weibo.com/getSayAll)
 

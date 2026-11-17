@@ -1,6 +1,39 @@
-# 无线麦 SayAll
+# 无线麦 SayAll（Xiaomi TV Box S 2nd Gen / XMRM-M3 适配版）
 
 [English](README.en.md)
+
+> 本仓库基于开源项目 [HD838A/remote-mic-app](https://github.com/HD838A/remote-mic-app) Fork，新增完整适配 **Xiaomi TV Box S (2nd Gen) 小米盒子 2 代海外版遥控器（型号：`XMRM-M3`，蓝牙名称：`Xiaomi RC`）**。
+
+## 新增适配：Xiaomi TV Box S 2nd Gen 遥控器 (`XMRM-M3`)
+
+<p align="center">
+  <img src="Resources/XMRM-M3-remote-photo.png" alt="Xiaomi TV Box S (2nd Gen) XMRM-M3 蓝牙遥控器" width="220">
+</p>
+
+- **设备识别与连接**：识别 VID `0x2717` / PID `0x32B9`、DIS 型号 `FH005` 及广播名 `Xiaomi RC`；针对 macOS 下不暴露小米 ATVV 蓝牙音频流服务的特性，在无 `AB5E0001` 时正常进入就绪态并支持电量读取。
+- **15 颗印字按键独立映射 + 16 键可视化画布**：完整支持 `电源`、`方向上/下/左/右`、`确认 (OK)`、`Xiaomi TV+`、`返回`、`主页`、`NETFLIX`、`prime video`、`YouTube`、`APPS`、`音量+ / 音量-` 单击/双击/长按自定义动作，并配备专属真机图连线画布。
+- **语音键与电源键系统抑制**：屏蔽按语音键（Consumer `0x00CF`）误唤出 macOS Siri，屏蔽按电源键（Consumer `0x0030`）误触发系统休眠（重映射为 `F20`）。
+- **Mac 语音输入工具联动（方案 A）**：按语音键可依据 App 内配置的语音键模式（`Fn`/地球键、Command、Option 或模拟 `Fn` 点按）触发豆包、系统听写等 Mac 语音输入工具，并直接配合 **Mac 本机麦克风** 收音。
+- **免虚拟声卡引导**：首次引导流程自动识别 `XMRM-M3` 使用 Mac 本机麦克风，免除安装或选择虚拟音频驱动即可完成全部设置与实测。
+
+<details>
+<summary><strong>源码本地编译打包（含 XMRM-M3 适配）</strong></summary>
+
+```zsh
+# 运行自测与构建（仅装有 CommandLineTools 且默认指向 27.x SDK 时需显式指定稳定版 macOS SDK）
+SDKROOT=/Library/Developer/CommandLineTools/SDKs/MacOSX26.5.sdk ./scripts/test.sh
+
+# 打包公版兼容本地测试 App（output: dist/SayAll.app）
+SDKROOT=/Library/Developer/CommandLineTools/SDKs/MacOSX26.5.sdk \
+  SAYALL_PRIVATE_PLATFORM_MODE=public \
+  SAYALL_BUILD_CHANNEL=public \
+  CODE_SIGN_IDENTITY=- \
+  ./scripts/build-app.sh
+```
+
+</details>
+
+---
 
 [官网](https://sayall.app/) · [配置教程](https://sayall.app/tutorial/) · [微博](https://weibo.com/getSayAll)
 
