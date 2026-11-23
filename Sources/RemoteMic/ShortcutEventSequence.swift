@@ -45,6 +45,16 @@ final class ShortcutHardwareModifierState {
         lock.unlock()
     }
 
+    func clearStaleFunctionPressIfHardwareReleased(_ raw: CGEventFlags) {
+        guard !raw.contains(.maskSecondaryFn) else { return }
+        lock.lock()
+        if functionKeyPressed == true {
+            functionKeyPressed = false
+            functionKeyUpAt = uptime()
+        }
+        lock.unlock()
+    }
+
     func snapshot(_ raw: CGEventFlags) -> (
         flags: CGEventFlags, functionState: String, removedFunctionFlag: Bool,
         functionFlagUnverified: Bool
@@ -324,6 +334,7 @@ enum ShortcutEventSequence {
         var cleanupFailed = false
         let selectedModifiers = selectedModifiers(for: requested)
         let rawHardwareFlags = hardwareFlags()
+        modifierState.clearStaleFunctionPressIfHardwareReleased(rawHardwareFlags)
         let hardwareSnapshot = modifierState.snapshot(rawHardwareFlags)
         var physicalAtStart = hardwareSnapshot.flags.intersection(preservedModifierMask)
         var functionFiltered = hardwareSnapshot.removedFunctionFlag

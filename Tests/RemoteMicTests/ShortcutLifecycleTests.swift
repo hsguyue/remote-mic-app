@@ -391,6 +391,28 @@ struct ShortcutLifecycleTests {
         #expect(events.last?.flags == .maskSecondaryFn)
     }
 
+    @Test func stalePressedFunctionIsClearedWhenHardwareFlagsReleased() {
+        let state = ShortcutHardwareModifierState()
+        let suppressor = KeyboardEventSuppressor(hardwareModifierState: state)
+        let functionEvent = CGEvent(keyboardEventSource: nil, virtualKey: 63, keyDown: true)!
+        functionEvent.type = .flagsChanged
+        functionEvent.flags = .maskSecondaryFn
+        #expect(!suppressor.handle(type: .flagsChanged, event: functionEvent))
+
+        var events: [Edge] = []
+        var logs: [String] = []
+        #expect(ShortcutEventSequence.send(
+            keyCode: 13, modifiers: .maskCommand,
+            hardwareFlags: { [] }, modifierState: state,
+            eventPoster: { events.append(Edge($0)); return true },
+            logger: { logs.append($0) }
+        ))
+        #expect(events.map(\.code) == [55, 13, 13, 55])
+        #expect(events.allSatisfy { !$0.flags.contains(.maskSecondaryFn) })
+        #expect(state.snapshot([]).functionState == "released")
+        #expect(logs.first?.contains("hardware_function_state=released") == true)
+    }
+
     @Test func helpKeyIdentityFlagIsNotCarriedIntoShortcuts() {
         var events: [Edge] = []
         #expect(ShortcutEventSequence.send(
