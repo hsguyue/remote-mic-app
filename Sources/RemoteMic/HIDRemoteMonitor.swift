@@ -1880,7 +1880,7 @@ final class HIDRemoteMonitor {
         guard pressed.contains(backUsage) else { return }
         let configured = ConfiguredButtonAction(action: .deleteBackward, shortcut: nil)
         guard actionPerformer(.back, .singleClick, configured) else {
-            releaseForRevokedPermissions()
+            handleFailedAction(button: .back, trigger: .singleClick, action: configured.action)
             return
         }
         AppLogger.shared.write(
@@ -2226,7 +2226,11 @@ final class HIDRemoteMonitor {
                 self.lastPageRepeatAt[usage] = now
             }
             if !self.actionPerformer(button, .singleClick, current) {
-                self.releaseForRevokedPermissions()
+                self.handleFailedAction(
+                    button: button,
+                    trigger: .singleClick,
+                    action: current.action
+                )
             }
         }
         repeatTimers[usage] = timer
@@ -2249,7 +2253,10 @@ final class HIDRemoteMonitor {
                 diagnosticLogger(
                     "HID GESTURE button=\(button.rawValue) trigger=\(trigger.rawValue) path=recognizer"
                 )
-                guard performConfiguredAction(for: button, trigger: trigger) else { return false }
+                if !performConfiguredAction(for: button, trigger: trigger),
+                   !runtimePermissionsAreValid() {
+                    return false
+                }
             }
         }
         return true
@@ -2348,21 +2355,30 @@ final class HIDRemoteMonitor {
             return true
         }
         guard actionPerformer(button, trigger, configured) else {
-            diagnosticLogger(
-                "HID ACTION failed button=\(button.rawValue) trigger=\(trigger.rawValue) " +
-                    "action=\(configured.action.rawValue)"
-            )
-            // A library rejection is not evidence of revoked Accessibility permission.
-            // Preserve the held edge so duplicate reports cannot restart the action.
-            if configured.action == .combinationAction { return false }
-            stop()
-            updateStatus(LocalizedMessage("button_mapping.permission.accessibility_expired"))
+            handleFailedAction(button: button, trigger: trigger, action: configured.action)
             return false
         }
         AppLogger.shared.write(
             "HID BUTTON button=\(button.rawValue) trigger=\(trigger.rawValue) action=\(configured.action.rawValue)"
         )
         return true
+    }
+
+    private func handleFailedAction(
+        button: RemoteButton,
+        trigger: ButtonTrigger,
+        action: ButtonAction
+    ) {
+        let permissionsValid = runtimePermissionsAreValid()
+        diagnosticLogger(
+            "HID ACTION failed button=\(button.rawValue) trigger=\(trigger.rawValue) " +
+                "action=\(action.rawValue) permissions_valid=\(permissionsValid)"
+        )
+        // 动作执行返回 false 可能是前置上下文不满足（如当前窗口需校准滚动区域、目标 App 缺失等），
+        // 并非辅助功能权限被撤销；仅当运行时权限确实失效时才释放监听。
+        if !permissionsValid {
+            releaseForRevokedPermissions()
+        }
     }
 
     private func performAppSwitcherAction(

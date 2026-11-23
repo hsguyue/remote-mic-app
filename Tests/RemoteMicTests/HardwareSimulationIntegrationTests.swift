@@ -585,6 +585,85 @@ struct HardwareSimulationIntegrationTests {
         #expect(monitor.status != LocalizedMessage("button_mapping.permission.accessibility_expired"))
     }
 
+    @Test func failedActionWithValidPermissionsPreservesMonitorForSubsequentButtons() throws {
+        let suiteName = "HardwareSimulationIntegrationTests.failedAction.\(UUID().uuidString)"
+        let defaults = try #require(TestUserDefaults(suiteName: suiteName))
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        let settings = AppSettings(defaults: defaults)
+        settings.customMappingEnabled = true
+        settings.setAction(.pageDown, for: .down, trigger: .doubleClick)
+        settings.setAction(.enter, for: .center, trigger: .singleClick)
+        let profileID = try #require(settings.selectedRemoteProfileID)
+        let scheduler = TestHIDRemoteScheduler()
+        var performed: [(RemoteButton, ButtonTrigger, ButtonAction)] = []
+        let monitor = HIDRemoteMonitor(
+            settings: settings,
+            profileID: profileID,
+            ownsEventSuppressor: false,
+            scheduler: scheduler,
+            runtimePermissions: { true },
+            actionPerformer: { button, trigger, configured in
+                performed.append((button, trigger, configured.action))
+                return configured.action != .pageDown
+            },
+            frontmostBundleIdentifier: { PresetApplication.codex.bundleIdentifier }
+        )
+        monitor.connectSimulatedDevice(fingerprint: "failed-action-keeps-monitor", profileID: profileID)
+
+        let downReport = XiaomiVoiceRemoteButton.down.report
+        let downRelease = Data(repeating: 0, count: downReport.data.count)
+        monitor.handleSimulatedReport(reportID: downReport.reportID, data: downReport.data)
+        monitor.handleSimulatedReport(reportID: downReport.reportID, data: downRelease)
+        scheduler.advance(toMilliseconds: 100)
+        monitor.handleSimulatedReport(reportID: downReport.reportID, data: downReport.data)
+        monitor.handleSimulatedReport(reportID: downReport.reportID, data: downRelease)
+        scheduler.advance(toMilliseconds: 700)
+
+        let centerReport = XiaomiVoiceRemoteButton.center.report
+        let centerRelease = Data(repeating: 0, count: centerReport.data.count)
+        monitor.handleSimulatedReport(reportID: centerReport.reportID, data: centerReport.data)
+        monitor.handleSimulatedReport(reportID: centerReport.reportID, data: centerRelease)
+        scheduler.advance(toMilliseconds: 1300)
+
+        #expect(monitor.status != LocalizedMessage("button_mapping.permission.accessibility_expired"))
+        #expect(monitor.status != LocalizedMessage("button_mapping.permission.system_expired"))
+        #expect(performed.contains { $0 == (.down, .doubleClick, .pageDown) })
+        #expect(performed.contains { $0 == (.center, .singleClick, .enter) })
+    }
+
+    @Test func failedActionWithRevokedPermissionsReleasesMonitor() throws {
+        let suiteName = "HardwareSimulationIntegrationTests.revokedAction.\(UUID().uuidString)"
+        let defaults = try #require(TestUserDefaults(suiteName: suiteName))
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        let settings = AppSettings(defaults: defaults)
+        settings.customMappingEnabled = true
+        settings.setAction(.pageDown, for: .down, trigger: .singleClick)
+        let profileID = try #require(settings.selectedRemoteProfileID)
+        let scheduler = TestHIDRemoteScheduler()
+        var permissionsValid = true
+        let monitor = HIDRemoteMonitor(
+            settings: settings,
+            profileID: profileID,
+            ownsEventSuppressor: false,
+            scheduler: scheduler,
+            runtimePermissions: { permissionsValid },
+            actionPerformer: { _, _, _ in
+                permissionsValid = false
+                return false
+            },
+            frontmostBundleIdentifier: { PresetApplication.codex.bundleIdentifier }
+        )
+        monitor.connectSimulatedDevice(fingerprint: "revoked-action-releases-monitor", profileID: profileID)
+
+        let downReport = XiaomiVoiceRemoteButton.down.report
+        let downRelease = Data(repeating: 0, count: downReport.data.count)
+        monitor.handleSimulatedReport(reportID: downReport.reportID, data: downReport.data)
+        monitor.handleSimulatedReport(reportID: downReport.reportID, data: downRelease)
+        scheduler.advance(toMilliseconds: 700)
+
+        #expect(monitor.status == LocalizedMessage("button_mapping.permission.system_expired"))
+    }
+
     @Test(arguments: XiaomiVoiceRemoteButton.allCases.filter { $0 != .back })
     func monitoredNativeButtonsReleaseSuppressionAfterReleaseAndDisconnect(
         _ simulatedButton: XiaomiVoiceRemoteButton
